@@ -64,7 +64,7 @@ normalop_gmm <- gmm(
 )
 
 # GMM  --------------------------------------------------------------------
-source("./gmm_misc_functions.R")
+source("./Functions/gmm_misc_functions.R")
 
 # Normal GMM Estimation
 id_gmm <- gmm_1(
