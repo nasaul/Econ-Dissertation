@@ -37,7 +37,9 @@ gmm_coord <- function(
   matrix = F,
   ...
 ){
+  
   stopifnot(is.integer(nsteps) | is.null(nsteps))
+  
   obj_func <- function(theta_0, i){
     obj_func_without_theta <- function(theta){
       theta_0[i] <- theta
@@ -46,10 +48,8 @@ gmm_coord <- function(
     }
   }
   
-  theta <- c()
-  
   if(is.null(nsteps)){
-    condition <- obj_func(theta_0,1)(1)
+    condition <- obj_func(theta_0,1)(theta_0[1])
   }
   
   if(!is.null(nsteps) & is.integer(nsteps)){
@@ -58,26 +58,27 @@ gmm_coord <- function(
       # Optimization for every parameter
       for(i in 1:length(theta_0)){
         result    <- optimize(obj_func(theta_0, i), interval = interval, ...)
-        theta[i]  <- result$minimum
+        theta_0[i]  <- result$minimum
       }
     }
   } else {
     while(condition >= eps ){
       # Optimization for every parameter
+      helper <- obj_func(theta_0,1)(theta_0[1])
       for(i in 1:length(theta_0)){
         result    <- optimize(obj_func(theta_0, i), interval = interval, ...)
-        theta[i]  <- result$minimum
+        theta_0[i]  <- result$minimum
       }
       # Checks condition
-        condition <- abs(condition - obj_func(theta,1)(1))
+        condition <- abs(helper - obj_func(theta_0,1)(theta_0[1]))
     }
   }
   
-  min_func<- obj_func(theta, 1)(theta[1]) %>% as.numeric
+  min_func <- obj_func(theta_0, 1)(theta_0[1]) %>% as.numeric
   
   return(
     list(
-      "Optimization Result" = theta,
+      "Optimization Result" = theta_0,
       "Function at minimum" = min_func
     )
   )

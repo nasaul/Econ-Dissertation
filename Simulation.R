@@ -22,11 +22,12 @@ set.seed(158684)
 data_matrix <- data_frame(
   z_1 = rnorm(n = n, mean = 0, sd = 20),
   z_2 = rnorm(n = n, mean = 0, sd = 30),
-  x   = rnorm(n = n,
+  x_1   = rnorm(n = n,
               mean = lambda_1 * z_1 + lambda_2 * z_2,
               sd = 1),
+  x_2 = rnorm(n = n, mean = 0, sd = 10),
   y   = rnorm(n = n, 
-              mean = theta * x + theta_1 * z_1 + theta_2 * z_2,
+              mean = theta * x_1 + theta_1 * z_1 + theta_2 * z_2 + .7 * x_2,
               sd = 1)
 ) %>% 
   as.matrix
@@ -35,10 +36,10 @@ data_matrix <- data_frame(
 
 moment_conditions <- function(theta, X, matrix = T){
   if(matrix == T){
-    eps <- X[,"y"] - ( X[,"x"] * theta )
+    eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
     moment <- X[, c("z_1","z_2")] * rep(c(eps),2) 
   } else{
-    eps_ <- X[,"y"] - ( X[,"x"] * theta )
+    eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
     moment <- t(X[, c("z_1","z_2")] ) %*% eps_
   }
   return(moment)
@@ -49,7 +50,7 @@ moment_conditions <- function(theta, X, matrix = T){
 normalid_gmm <- gmm(
   moment_conditions,
   data_matrix,
-  t0 = 0,
+  t0 = c(0,0),
   wmatrix ="ident",
   method = "BFGS"
 )
@@ -58,7 +59,7 @@ normalop_gmm <- gmm(
   moment_conditions,
   data_matrix,
   type     = "twoStep",
-  t0       = 0,
+  t0       = c(0,0),
   wmatrix  = "ident",
   method   = "BFGS"
 )
@@ -70,7 +71,7 @@ source("./Functions/gmm_misc_functions.R")
 id_gmm <- gmm_1(
   moment_cond = moment_conditions,
   data        = data_matrix,
-  theta_0     = 0,
+  theta_0     = c(0,0),
   method      = "BFGS",
   matrix      = F
 ) 
@@ -80,18 +81,17 @@ id_gmm <- gmm_1(
 coord_gmm <- gmm_coord(
   moment_cond = moment_conditions,
   data        = data_matrix,
-  theta_0     = 0,
-  interval = c(-500,500),
-  matrix      = F,
-  nsteps = 500L
+  theta_0     = c(0,0),
+  interval    = c(-500,500),
+  matrix      = F
 ) 
 
 # Efficient GMM Estimation
 
-ef_gmm <- gmm_eff(
-  moment_cond = moment_conditions,
-  data        = data_matrix,
-  theta_0     = 0,
-  method = "BFGS"
-) 
+# ef_gmm <- gmm_eff(
+#   moment_cond = moment_conditions,
+#   data        = data_matrix,
+#   theta_0     = c(0, 0),
+#   method = "BFGS"
+# ) 
 
