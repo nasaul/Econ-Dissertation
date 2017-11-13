@@ -75,6 +75,17 @@ id_gmm <- gmm_1(
   matrix      = F
 ) 
 
+# Coordinate Descent
+
+coord_gmm <- gmm_coord(
+  moment_cond = moment_conditions,
+  data        = data_matrix,
+  theta_0     = 0,
+  interval = c(-500,500),
+  matrix      = F,
+  nsteps = 500L
+) 
+
 # Efficient GMM Estimation
 
 ef_gmm <- gmm_eff(
@@ -84,7 +95,3 @@ ef_gmm <- gmm_eff(
   method = "BFGS"
 ) 
 
-normalid_gmm$coefficients
-id_gmm$`Optimization Result`$par
-normalop_gmm$coefficients
-ef_gmm$`Optimization Result`$par
