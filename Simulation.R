@@ -1,22 +1,20 @@
-library(gmm)
+#library(gmm)
 library(magrittr)
 library(dplyr)
 
 # Simulate Endogeneity ----------------------------------------------------
 # Model:
-# Y = theta * X + theta_1 * Z_1 + theta_2 * Z_2 + eps
+# Y = theta * X_1 + theta_1 * Z_1 + theta_2 * Z_2 + theta_3 * X_2 eps
 # X = lambda_1 * Z_1 + lambda_2 * Z_2 + u
-
 # Parameters
-n        <- 10000
-theta    <- 5
-theta_1  <- .5
-theta_2  <- .5
-lambda_1 <- 3
-lambda_2 <- 5
-
+  n        <- 10000
+  theta    <- 5
+  theta_1  <- 0.5
+  theta_2  <- 0.5
+  theta_3  <- 0.7
+  lambda_1 <- 3
+  lambda_2 <- 5
 # Data generation
-
 set.seed(158684)
 
 data_matrix <- data_frame(
@@ -27,48 +25,49 @@ data_matrix <- data_frame(
               sd = 1),
   x_2 = rnorm(n = n, mean = 0, sd = 10),
   y   = rnorm(n = n, 
-              mean = theta * x_1 + theta_1 * z_1 + theta_2 * z_2 + .7 * x_2,
+              mean = theta * x_1 + theta_1 * z_1 + theta_2 * z_2 + theta_3 * x_2,
               sd = 1)
 ) %>% 
   as.matrix
 
 # Define moments ----------------------------------------------------------
-
+# Notice that this always be user input,
+# for simulation purposes I can do whatever I want.
 moment_conditions <- function(theta, X, matrix = T){
   if(matrix == T){
     eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- X[, c("z_1","z_2")] * rep(c(eps),2) 
+    moment <- X[, c("z_1","z_2", "x_2")] * rep(c(eps),3) / length(eps)
   } else{
     eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- t(X[, c("z_1","z_2")] ) %*% eps_
+    moment <- t(X[, c("z_1","z_2", "x_2")] ) %*% eps_ / length(eps_)
   }
   return(moment)
 }
 
 # GMM R function ----------------------------------------------------------
 
-normalid_gmm <- gmm(
-  moment_conditions,
-  data_matrix,
-  t0 = c(0,0),
-  wmatrix ="ident",
-  method = "BFGS"
-)
-
-normalop_gmm <- gmm(
-  moment_conditions,
-  data_matrix,
-  type     = "twoStep",
-  t0       = c(0,0),
-  wmatrix  = "ident",
-  method   = "BFGS"
-)
+# normalid_gmm <- gmm(
+#   moment_conditions,
+#   data_matrix,
+#   t0 = c(0,0),
+#   wmatrix ="ident",
+#   method = "BFGS"
+# )
+# 
+# normalop_gmm <- gmm(
+#   moment_conditions,
+#   data_matrix,
+#   type     = "twoStep",
+#   t0       = c(0,0),
+#   wmatrix  = "ident",
+#   method   = "BFGS"
+# )
 
 # GMM  --------------------------------------------------------------------
 source("./Functions/gmm_misc_functions.R")
 
-# Normal GMM Estimation
-id_gmm <- gmm_1(
+# Normal GMM Estimation with identity matrix
+id_gmm <- gmm(
   moment_cond = moment_conditions,
   data        = data_matrix,
   theta_0     = c(0,0),
@@ -76,7 +75,7 @@ id_gmm <- gmm_1(
   matrix      = F
 ) 
 
-# Coordinate Descent
+# Coordinate Descent Estimation with identity matrix
 
 coord_gmm <- gmm_coord(
   moment_cond = moment_conditions,
@@ -95,3 +94,36 @@ coord_gmm <- gmm_coord(
 #   method = "BFGS"
 # ) 
 
+# Shrinkage GMM ---------------------------------------------------------------------------------------------------
+# Define moments that you know are equal to 0.
+known_conditions <- function(theta, X, matrix = T){
+  if(matrix == T){
+    eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
+    moment <- X[, c("z_1", "x_2")] * rep(c(eps),2) / length(eps)
+  } else{
+    eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
+    moment <- (t(X[, c("z_1", "x_2")] ) %*% eps_) / length(eps_) 
+  }
+  return(moment)
+}
+# Define moments that you want to test.
+unknown_conditions <- function(theta, X, matrix = T){
+  if(matrix == T){
+    eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
+    moment <- X[, c("z_2")] * rep(c(eps),1) 
+  } else{
+    eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
+    moment <- (t(X[, c("z_2")] ) %*% eps_) / length(eps_) 
+  }
+  return(moment)
+}
+# Alasso GMM
+gmm_alasso(
+  known_cond = known_conditions,
+  unknown_cond = unknown_conditions,
+  data        = data_matrix,
+  theta_0     = c(0,0),
+  interval    = c(-500,500),
+  lambda = 10,
+  eps = 1e-2
+)
