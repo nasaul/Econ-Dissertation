@@ -123,7 +123,6 @@ gmm_alasso(
   unknown_cond = unknown_conditions,
   data        = data_matrix,
   theta_0     = c(0,0),
-  interval    = c(-500,500),
-  lambda = 10,
-  eps = 1e-2
+  lambda = 10000,
+  eps = 1e-8
 )

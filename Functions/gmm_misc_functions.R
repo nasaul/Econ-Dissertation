@@ -101,10 +101,8 @@ gmm_alasso <- function(
   data,             # Matrix of data.
   theta_0,          # Initial guess.
   lambda,           # Penalization Parameter.
-  interval,         # Vector contains.
   nsteps = NULL,    # Steps for the for to run.
   eps = 1e-10,      # Coondition to check minimum.
-  matrix = F,
   ...
 ){
 # Stop if nsteps is not an integer.
@@ -115,25 +113,46 @@ gmm_alasso <- function(
 # 1st Step:
   # Let's bind conditions.
   moment_cond <- function(known_cond, unknown_cond){
-    function(theta_0, data, matrix = matrix){
-      moments <- rbind(known_cond(theta_0, data, matrix), unknown_cond(theta_0, data, matrix))
+    function(theta_0, data, matrix = T){
+      moments <- cbind(known_cond(theta_0, data, matrix), unknown_cond(theta_0, data, matrix))
     }
   }
   # Let's get the first step estimation of beta.
-  first_gmm <- gmm(
-    moment_cond = moment_cond(known_cond, unknown_cond),
-    data        = data, 
-    theta_0     = theta_0
+  first_gmm <- gmm::gmm(
+    g = moment_cond(known_cond, unknown_cond),
+    x       = data, 
+    t0     = theta_0
   )
-  # First step beta.
-  first_beta <- first_gmm$theta %>% 
-    unknown_cond(X = data, matrix = matrix) %>% 
-    as.numeric
+  # Values of condition in first estimation
+  first_condition <- first_gmm$coefficients %>% 
+    unknown_cond(X = data, matrix = T) %>% 
+    as.matrix
+  n_unkown <- first_condition %>% ncol
+  # Moment condition
+  first_beta <- first_condition %>% 
+    apply(MARGIN = 2, mean) %>% 
+    as.vector()
+  # Maximium and miminum values 
+  first_beta_max <- first_condition %>% 
+    apply(MARGIN = 2, max) %>% 
+    as.vector()
+  first_beta_min <- first_condition %>% 
+    apply(MARGIN = 2, min) %>% 
+    as.vector()
   # First step theta.
-  theta <- first_gmm$theta
+  theta <- first_gmm$coefficients
+  # Standar error of theta
+  theta_se <- first_gmm %>% 
+    broom::tidy() %>% 
+    dplyr::distinct(std.error) %>% 
+    dplyr::pull()
+  min_theta <- theta - 6 * theta_se
+  max_theta <- theta + 6 * theta_se 
 # Second Step:
   # Stack parameters
-  beta <- c(theta, first_beta)
+  min_beta <- c(min_theta, first_beta_min) 
+  beta     <- c(theta, first_beta)
+  max_beta <- c(max_theta, first_beta_max)
   # Objective function to be minimized.
   obj_func <- function(beta, i){
     # For Coordinate Descent we need that the function 
@@ -142,8 +161,8 @@ gmm_alasso <- function(
       # Update value
       beta[i] <- theta
       # Computes known and unknown moments
-      mom        <- known_cond(beta[1:length(theta_0)], data, matrix) %>% 
-        rbind(., unknown_cond(beta[1:length(theta_0)], data, matrix) - rep(beta[(length(theta_0) + 1):length(beta)], length(first_beta) ))
+      mom <- known_cond(beta[1:length(theta_0)], data, matrix = F) %>% 
+        rbind(., unknown_cond(beta[1:length(theta_0)], data, matrix = F) - rep(beta[(length(theta_0) + 1):length(beta)], n_unkown))
       # Minimization problem
       func_value <- t(mom) %*% diag(length(mom)) %*% mom + # GMM
         # Penalization
@@ -159,7 +178,7 @@ gmm_alasso <- function(
       # Optimization for every parameter.
       for(i in 1:length(beta)){
         # Optimize value theta[i]
-        beta[i] <- optimize(obj_func(beta, i), interval = interval,...)$minimum
+        beta[i] <- optimize(obj_func(beta, i), interval = c(min_beta[i], max_beta[i]),...)$minimum
       }
     }
   } else {
@@ -173,11 +192,16 @@ gmm_alasso <- function(
       helper <- obj_func(beta,1)(beta[1])
       # Optimization for every parameter.
       for(i in 1:length(beta)){
-        beta[i] <- optimize(obj_func(beta, i), interval = interval, ...)$minimum
+        beta[i] <- optimize(obj_func(beta, i), interval = c(min_beta[i], max_beta[i]))$minimum
       }
       # Computes difference of objective function.
       condition <- abs(helper - obj_func(beta,1)(beta[1]))
     }
   }
- return(beta)
+ return(
+   list(
+     parameters  = beta[1:length(theta_0)],
+     tested_cond =  beta[(length(theta_0)+1):length(beta)]
+   )
+ )
 }
