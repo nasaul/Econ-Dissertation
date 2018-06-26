@@ -10,7 +10,7 @@ gmm <- function(
   ){
 # Objective function to be minimized.
   obj_func <- function(theta_0){
-    mom    <- moment_cond(theta_0, data, matrix = matrix)
+    mom    <- moment_cond(theta = theta_0, X = data, matrix = matrix)
     t(mom) %*% diag(length(mom)) %*% mom
   }
 # Optimization
@@ -97,7 +97,7 @@ gmm_coord <- function(
 
 gmm_alasso <- function(
   known_cond,       # Function with arguments (theta, matrix), that returns known moment conditions.
-  unknown_cond,      # Function with arguments (theta, matrix), that returns unknown moment conditions.
+  unknown_cond,     # Function with arguments (theta, matrix), that returns unknown moment conditions.
   data,             # Matrix of data.
   theta_0,          # Initial guess.
   lambda,           # Penalization Parameter.
@@ -114,14 +114,25 @@ gmm_alasso <- function(
   # Let's bind conditions.
   moment_cond <- function(known_cond, unknown_cond){
     function(theta_0, data, matrix = T){
-      moments <- cbind(known_cond(theta_0, data, matrix), unknown_cond(theta_0, data, matrix))
+      moments <- cbind(
+        known_cond(
+          theta = theta_0,
+          X = data,
+          matrix = matrix
+          ),
+        unknown_cond(
+          theta = theta_0,
+          X = data,
+          matrix = matrix
+          )
+      )
     }
   }
   # Let's get the first step estimation of beta.
   first_gmm <- gmm::gmm(
     g = moment_cond(known_cond, unknown_cond),
-    x       = data, 
-    t0     = theta_0
+    x = data, 
+    t0 = theta_0
   )
   # Values of condition in first estimation
   first_condition <- first_gmm$coefficients %>% 
@@ -204,4 +215,89 @@ gmm_alasso <- function(
      tested_cond =  beta[(length(theta_0)+1):length(beta)]
    )
  )
+}
+
+# Cross Validation --------------------------------------------------------
+
+cv_gmm_alasso <- function(
+  nfolds,
+  known_cond,       # Function with arguments (theta, matrix), that returns known moment conditions.
+  unknown_cond,     # Function with arguments (theta, matrix), that returns unknown moment conditions.
+  data,             # Matrix of data.
+  theta_0,          # Initial guess.
+  lambda = NULL,    # Penalization Parameter.
+  nsteps = NULL,    # Steps for the for to run.
+  eps = 1e-10,      # Coondition to check minimum.
+  ...
+){
+  # Determines which lambdas are going to be evaluated
+  if(is.null(lambda)){
+    lambda <- exp(seq(1,100))
+  }
+  
+  train_size <- floor(0.75 * nrow(data))
+  train_ind  <- sample(seq_len(nrow(data)), size = train_size)
+  
+  train_data <- data[train_ind, ]
+  
+  test_data <- data[-train_ind,]
+  
+  # Returns a list of parameters
+  estimation <- purrr::map(
+    lambda,
+    ~gmm_alasso(
+      known_cond = known_cond,
+      unknown_cond = unknown_cond,
+      data = train_data,
+      theta_0 = theta_0,
+      lambda = .,
+      nsteps = nsteps,
+      eps = eps
+    )
+  )
+  
+  error_generator <- function(gmm_alasso_list, test_data){
+    
+    tested_cond <- gmm_alasso_list$tested_cond
+    conditions  <- if_else(near(tested_cond, 0, tol = 1e3), 1, 0)
+    
+    moment_cond <- function(known_cond, unknown_cond){
+      function(theta_0, data, matrix = T){
+        moments <- cbind(
+          known_cond(
+            theta = theta_0,
+            X = data,
+            matrix = matrix
+          ),
+          unknown_cond(
+            theta = theta_0,
+            X = data,
+            matrix = matrix
+          )[, conditions]
+        )
+      }
+    }
+    
+    last_gmm <- gmm::gmm(
+      g = moment_cond(known_cond, unknown_cond),
+      x = test_data, 
+      t0 = gmm_alasso_list$parameters
+    )
+    return(last_gmm)
+  }
+  
+  error <- purrr::map(
+    estimation,
+    ~error_generator(., test_data = test_data)$objective
+  ) %>% 
+    purrr::flatten_dbl()
+  
+  results <- data.frame(
+    error = error,
+    lambda = log(lambda)
+  )
+  
+  return(
+    results
+  )
 }
