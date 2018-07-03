@@ -1,128 +1,109 @@
-#library(gmm)
+library(MASS)
+library(tibble)
 library(magrittr)
 library(dplyr)
 
 # Simulate Endogeneity ----------------------------------------------------
 # Model:
-# Y = theta * X_1 + theta_1 * Z_1 + theta_2 * Z_2 + theta_3 * X_2 eps
-# X = lambda_1 * Z_1 + lambda_2 * Z_2 + u
+# (xstar, c) ~ normal((0,0), (1, rho, rho, 1)) ->
+#   cor(xstar, c) = rho
+# x <- xstar + theta[1] * z1 + theta[2] * z2 + theta[3] * z3 + theta[4] * z4 + theta[5] * z5
+# y ~ normal( 
+#   alpha[1] + alpha[2] * x + alpha[3] c,
+#   sigma_sd^2
+# )
+# z6 ... z10 are confounders
+
 # Parameters
-  n        <- 10000
-  theta    <- 5
-  theta_1  <- 0.5
-  theta_2  <- 0.5
-  theta_3  <- 0.7
-  lambda_1 <- 3
-  lambda_2 <- 5
+  N <- 500
+  rho <- 0.9
+  theta_param <- c(
+    0.9, # theta1
+    0.8, # theta2
+    0.7, # theta3 
+    0.6, # theta4 
+    0.5  # theta5
+  )
+  alpha <- c(
+    1, # Intercept
+    2, # Parameter of interest
+    3,  # alpha3
+    4
+  )
+  sigma_sd <- 5
 # Data generation
 set.seed(158684)
 
-data_matrix <- data_frame(
-  z_1 = rnorm(n = n, mean = 0, sd = 20),
-  z_2 = rnorm(n = n, mean = 0, sd = 30),
-  x_1   = rnorm(n = n,
-              mean = lambda_1 * z_1 + lambda_2 * z_2,
-              sd = 1),
-  x_2 = rnorm(n = n, mean = 0, sd = 10),
-  y   = rnorm(n = n, 
-              mean = theta * x_1 + theta_1 * z_1 + theta_2 * z_2 + theta_3 * x_2,
-              sd = 1)
+df <- mvrnorm(
+  n = N,
+  mu = c(0,0),
+  Sigma =  matrix(c(1,rho,rho,1), 2, 2)
 ) %>% 
-  as.matrix
+  as_tibble() %>% 
+  rename(
+    xstar = V1,
+    c = V2
+  ) %>% 
+  mutate(
+    z1  = rnorm(N),
+    z2  = rnorm(N),
+    z3  = rnorm(N),
+    z4  = rnorm(N),
+    z5  = rnorm(N),
+    z6  = rnorm(N),
+    z7  = rnorm(N),
+    z8  = rnorm(N),
+    z9  = rnorm(N),
+    z10 = rnorm(N),
+    x  = xstar + theta_param[1] * z1 + theta_param[2] * z2 + theta_param[3] * z3 + theta_param[4] * z4 + theta_param[5] * z5,
+    x1 = rnorm(N),
+    y = alpha[1] + alpha[2] * x + alpha[3] * c + alpha[4] * x1 +rnorm(N, 0 , sigma_sd)
+  )
 
-# Define moments ----------------------------------------------------------
-# Notice that this always be user input,
-# for simulation purposes I can do whatever I want.
-moment_conditions <- function(theta, X, matrix = T){
-  if(matrix == T){
-    eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- X[, c("z_1","z_2", "x_2")] * rep(c(eps),3) / length(eps)
-  } else{
-    eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- t(X[, c("z_1","z_2", "x_2")] ) %*% eps_ / length(eps_)
-  }
-  return(moment)
-}
-
-# GMM R function ----------------------------------------------------------
-
-# normalid_gmm <- gmm(
-#   moment_conditions,
-#   data_matrix,
-#   t0 = c(0,0),
-#   wmatrix ="ident",
-#   method = "BFGS"
-# )
-# 
-# normalop_gmm <- gmm(
-#   moment_conditions,
-#   data_matrix,
-#   type     = "twoStep",
-#   t0       = c(0,0),
-#   wmatrix  = "ident",
-#   method   = "BFGS"
-# )
-
-# GMM  --------------------------------------------------------------------
-source("./Functions/gmm_misc_functions.R")
-
-# Normal GMM Estimation with identity matrix
-id_gmm <- gmm(
-  moment_cond = moment_conditions,
-  data        = data_matrix,
-  theta_0     = c(0,0),
-  method      = "BFGS",
-  matrix      = F
-) 
-
-# Coordinate Descent Estimation with identity matrix
-
-coord_gmm <- gmm_coord(
-  moment_cond = moment_conditions,
-  data        = data_matrix,
-  theta_0     = c(0,0),
-  interval    = c(-500,500),
-  matrix      = F
-) 
-
-# Efficient GMM Estimation
-
-# ef_gmm <- gmm_eff(
-#   moment_cond = moment_conditions,
-#   data        = data_matrix,
-#   theta_0     = c(0, 0),
-#   method = "BFGS"
-# ) 
-
-# Shrinkage GMM ---------------------------------------------------------------------------------------------------
+# Moment Definition -------------------------------------------------------
 # Define moments that you know are equal to 0.
-known_conditions <- function(theta, X, matrix = T){
+known_conditions <- function(theta, df, matrix = T){
+  X <- as.matrix(df)
+  eps <- X[,"y"] - ( X[, c("x", "x1")] %*% as.matrix(theta) )
   if(matrix == T){
-    eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- X[, c("z_1", "x_2")] * rep(c(eps),2) / length(eps)
+    moment <- X[, c("z1", "z2", "x1")] * rep(c(eps),3) / length(eps)
   } else{
-    eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- (t(X[, c("z_1", "x_2")] ) %*% eps_) / length(eps_) 
+    moment <- (t(X[, c("z1", "z2", "x1")] ) %*% eps) / length(eps) 
   }
   return(moment)
 }
 # Define moments that you want to test.
-unknown_conditions <- function(theta, X, matrix = T){
+unknown_conditions <- function(theta, df, matrix = T){
+  X <- as.matrix(df)
+  eps <- X[,"y"] - ( X[, c("x", "x1")] %*% as.matrix(theta) )
   if(matrix == T){
-    eps <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- X[, c("z_2")] * rep(c(eps),1) 
+    moment <- as.matrix(X[, c("z3", "z4", "z5", "z6", "z7")] * rep(c(eps),5))
   } else{
-    eps_ <- X[,"y"] - ( X[, c("x_1", "x_2")] %*% theta )
-    moment <- (t(X[, c("z_2")] ) %*% eps_) / length(eps_) 
+    moment <- (t(X[, c("z3", "z4", "z5", "z6", "z7")] ) %*% eps) / length(eps) 
   }
   return(moment)
 }
+
+
+# Shrinkage GMM -----------------------------------------------------------
+source("./Functions/gmm_misc_functions.R")
 # Alasso GMM
 gmm_alasso(
   known_cond = known_conditions,
   unknown_cond = unknown_conditions,
-  data        = data_matrix,
-  theta_0     = c(0,0),
-  lambda = 10000,
+  data        = df,
+  theta_0     = c(0, 0),
+  lambda = 100,
   eps = 1e-8
 )
+
+algo <- cv_gmm_alasso(
+  known_cond = known_conditions,
+  unknown_cond = unknown_conditions,
+  data        = df,
+  theta_0     = c(0, 0),
+  eps = 1e-8
+)
+
+algo %>% 
+  ggplot(data = ., aes(x = lambda, y = error)) + geom_line()

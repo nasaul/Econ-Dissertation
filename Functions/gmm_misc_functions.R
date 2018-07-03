@@ -117,15 +117,16 @@ gmm_alasso <- function(
       moments <- cbind(
         known_cond(
           theta = theta_0,
-          X = data,
+          df = data,
           matrix = matrix
           ),
         unknown_cond(
           theta = theta_0,
-          X = data,
+          df = data,
           matrix = matrix
           )
       )
+      return(moments)
     }
   }
   # Let's get the first step estimation of beta.
@@ -136,7 +137,7 @@ gmm_alasso <- function(
   )
   # Values of condition in first estimation
   first_condition <- first_gmm$coefficients %>% 
-    unknown_cond(X = data, matrix = T) %>% 
+    unknown_cond(df = data, matrix = T) %>% 
     as.matrix
   n_unkown <- first_condition %>% ncol
   # Moment condition
@@ -172,8 +173,10 @@ gmm_alasso <- function(
       # Update value
       beta[i] <- theta
       # Computes known and unknown moments
-      mom <- known_cond(beta[1:length(theta_0)], data, matrix = F) %>% 
-        rbind(., unknown_cond(beta[1:length(theta_0)], data, matrix = F) - rep(beta[(length(theta_0) + 1):length(beta)], n_unkown))
+      mom <- rbind(
+        known_cond(beta[1:length(theta_0)], data, matrix = F),
+        unknown_cond(beta[1:length(theta_0)], data, matrix = F) - beta[(length(theta_0) + 1):length(beta)]
+      )
       # Minimization problem
       func_value <- t(mom) %*% diag(length(mom)) %*% mom + # GMM
         # Penalization
@@ -230,6 +233,7 @@ cv_gmm_alasso <- function(
   eps = 1e-10,      # Coondition to check minimum.
   ...
 ){
+  set.seed(123456)
   # Determines which lambdas are going to be evaluated
   if(is.null(lambda)){
     lambda <- exp(seq(1,100))
@@ -255,44 +259,45 @@ cv_gmm_alasso <- function(
       eps = eps
     )
   )
-  
+
   error_generator <- function(gmm_alasso_list, test_data){
-    
+    print("error generator")
     tested_cond <- gmm_alasso_list$tested_cond
-    conditions  <- if_else(near(tested_cond, 0, tol = 1e3), 1, 0)
-    
+    conditions  <- if_else(near(tested_cond, 0, tol = 1e-3), TRUE, FALSE)
     moment_cond <- function(known_cond, unknown_cond){
       function(theta_0, data, matrix = T){
         moments <- cbind(
           known_cond(
             theta = theta_0,
-            X = data,
+            df = data,
             matrix = matrix
           ),
           unknown_cond(
             theta = theta_0,
-            X = data,
+            df = data,
             matrix = matrix
-          )[, conditions]
+          )[,conditions]
         )
+        return(as.matrix(moments))
       }
     }
     
     last_gmm <- gmm::gmm(
       g = moment_cond(known_cond, unknown_cond),
-      x = test_data, 
-      t0 = gmm_alasso_list$parameters
+      x = test_data,
+      t0 = rep(0, length(theta_0))
     )
+    
     return(last_gmm)
   }
   
   error <- purrr::map(
     estimation,
     ~error_generator(., test_data = test_data)$objective
-  ) %>% 
+  ) %>%
     purrr::flatten_dbl()
   
-  results <- data.frame(
+  results <- tibble::tibble(
     error = error,
     lambda = log(lambda)
   )

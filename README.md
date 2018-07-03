@@ -4,4 +4,4 @@ Code for my Econ Dissertation on GMM Shrinkage method
 - [ ] Make conditions do not depend on matrix.
 - [x] Do not use user inputs for optimization interval.
 - [ ] Cross validation.
-- [ ] Change simulation design.
+- [x] Change simulation design.
