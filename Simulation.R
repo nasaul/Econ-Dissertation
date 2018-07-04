@@ -18,11 +18,11 @@ library(dplyr)
   N <- 500
   rho <- 0.9
   theta_param <- c(
-    0.9, # theta1
-    0.8, # theta2
-    0.7, # theta3 
-    0.6, # theta4 
-    0.5  # theta5
+    5, # theta1
+    4, # theta2
+    3, # theta3 
+    2, # theta4 
+    1  # theta5
   )
   alpha <- c(
     1, # Intercept
@@ -55,7 +55,7 @@ df <- mvrnorm(
     z8  = rnorm(N),
     z9  = rnorm(N),
     z10 = rnorm(N),
-    x  = xstar + theta_param[1] * z1 + theta_param[2] * z2 + theta_param[3] * z3 + theta_param[4] * z4 + theta_param[5] * z5,
+    x  = 10 * xstar + theta_param[1] * z1 + theta_param[2] * z2 + theta_param[3] * z3 + theta_param[4] * z4 + theta_param[5] * z5,
     x1 = rnorm(N),
     y = alpha[1] + alpha[2] * x + alpha[3] * c + alpha[4] * x1 +rnorm(N, 0 , sigma_sd)
   )
@@ -93,17 +93,16 @@ gmm_alasso(
   unknown_cond = unknown_conditions,
   data        = df,
   theta_0     = c(0, 0),
-  lambda = 100,
+  lambda = 0.025,
   eps = 1e-8
 )
-
-algo <- cv_gmm_alasso(
+# Cross Validation
+cv.model <- cv_gmm_alasso(
+  nfolds = 5,
   known_cond = known_conditions,
   unknown_cond = unknown_conditions,
   data        = df,
   theta_0     = c(0, 0),
-  eps = 1e-8
+  eps = 1e-4
 )
 
-algo %>% 
-  ggplot(data = ., aes(x = lambda, y = error)) + geom_line()

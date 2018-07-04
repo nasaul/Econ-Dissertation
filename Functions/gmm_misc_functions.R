@@ -102,7 +102,7 @@ gmm_alasso <- function(
   theta_0,          # Initial guess.
   lambda,           # Penalization Parameter.
   nsteps = NULL,    # Steps for the for to run.
-  eps = 1e-10,      # Coondition to check minimum.
+  eps = 1e-8,      # Coondition to check minimum.
   ...
 ){
 # Stop if nsteps is not an integer.
@@ -158,12 +158,12 @@ gmm_alasso <- function(
     broom::tidy() %>% 
     dplyr::distinct(std.error) %>% 
     dplyr::pull()
-  min_theta <- theta - 6 * theta_se
-  max_theta <- theta + 6 * theta_se 
+  min_theta <- theta - 8 * theta_se
+  max_theta <- theta + 8 * theta_se 
 # Second Step:
   # Stack parameters
   min_beta <- c(min_theta, first_beta_min) 
-  beta     <- c(theta, first_beta)
+  beta     <- c(rep(0, length(theta)), first_beta)
   max_beta <- c(max_theta, first_beta_max)
   # Objective function to be minimized.
   obj_func <- function(beta, i){
@@ -185,6 +185,7 @@ gmm_alasso <- function(
     }
     return(obj_func_without_theta)
   }
+  # print("Start Optimization")
 # Checks for steps or while approach.
   if(!is.null(nsteps) & is.integer(nsteps)){
     # Steps of optimization.
@@ -197,7 +198,7 @@ gmm_alasso <- function(
     }
   } else {
     # Create condition for the while to start with.
-    condition <- obj_func(beta, 1)(beta[1])
+    condition <- obj_func(beta, 1)(beta[1]) 
     # Condition that checks the changes within 
     # iterations.
     while(condition >= eps){
@@ -209,9 +210,13 @@ gmm_alasso <- function(
         beta[i] <- optimize(obj_func(beta, i), interval = c(min_beta[i], max_beta[i]))$minimum
       }
       # Computes difference of objective function.
-      condition <- abs(helper - obj_func(beta,1)(beta[1]))
+      condition <- abs(helper - obj_func(beta,1)(beta[1])) 
+      # print(condition)
     }
   }
+  
+  gc()
+  
  return(
    list(
      parameters  = beta[1:length(theta_0)],
@@ -222,29 +227,21 @@ gmm_alasso <- function(
 
 # Cross Validation --------------------------------------------------------
 
-cv_gmm_alasso <- function(
-  nfolds,
+train_test_gmm_alasso <- function(
   known_cond,       # Function with arguments (theta, matrix), that returns known moment conditions.
   unknown_cond,     # Function with arguments (theta, matrix), that returns unknown moment conditions.
-  data,             # Matrix of data.
+  train_data,       # Matrix of data.
+  test_data,
   theta_0,          # Initial guess.
   lambda = NULL,    # Penalization Parameter.
   nsteps = NULL,    # Steps for the for to run.
-  eps = 1e-10,      # Coondition to check minimum.
+  eps = 1e-8,      # Coondition to check minimum.
   ...
 ){
-  set.seed(123456)
   # Determines which lambdas are going to be evaluated
   if(is.null(lambda)){
-    lambda <- exp(seq(1,100))
+    lambda <- seq(0,0.8, by = .005)
   }
-  
-  train_size <- floor(0.75 * nrow(data))
-  train_ind  <- sample(seq_len(nrow(data)), size = train_size)
-  
-  train_data <- data[train_ind, ]
-  
-  test_data <- data[-train_ind,]
   
   # Returns a list of parameters
   estimation <- purrr::map(
@@ -261,7 +258,7 @@ cv_gmm_alasso <- function(
   )
 
   error_generator <- function(gmm_alasso_list, test_data){
-    print("error generator")
+    # print("error generator")
     tested_cond <- gmm_alasso_list$tested_cond
     conditions  <- if_else(near(tested_cond, 0, tol = 1e-3), TRUE, FALSE)
     moment_cond <- function(known_cond, unknown_cond){
@@ -288,21 +285,62 @@ cv_gmm_alasso <- function(
       t0 = rep(0, length(theta_0))
     )
     
-    return(last_gmm)
+    return(
+      list(
+        gmm = last_gmm,
+        selected = conditions
+      )
+    )
   }
   
   error <- purrr::map(
     estimation,
-    ~error_generator(., test_data = test_data)$objective
-  ) %>%
-    purrr::flatten_dbl()
+    ~error_generator(., test_data = test_data)
+  ) 
   
   results <- tibble::tibble(
-    error = error,
-    lambda = log(lambda)
-  )
+    lambda = lambda
+  ) %>%
+    dplyr::mutate(
+      selected = purrr::map(error, ~sum(.$selected)) %>% purrr::flatten_int(),
+      moments = purrr::map(error, ~.$selected),
+      error = purrr::map(error, ~.$gmm$objective) %>% purrr::flatten_dbl()
+    )
   
   return(
     results
   )
+}
+
+cv_gmm_alasso <- function(
+  nfolds,
+  known_cond,       # Function with arguments (theta, matrix), that returns known moment conditions.
+  unknown_cond,     # Function with arguments (theta, matrix), that returns unknown moment conditions.
+  data,             # Matrix of data.
+  theta_0,          # Initial guess.
+  lambda = NULL,    # Penalization Parameter.
+  nsteps = NULL,    # Steps for the for to run.
+  eps = 1e-8,      # Coondition to check minimum.
+  ...
+){
+  divide <- nrow(data) / nfolds
+  data <- data %>% 
+    mutate(helper = rep(sample(1:nfolds), divide))
+  
+  resul <- purrr::map_df(
+    seq(1:nfolds),
+    ~train_test_gmm_alasso(
+      known_cond = known_cond, 
+      unknown_cond = unknown_cond, 
+      train_data = dplyr::filter(data, helper != .), 
+      test_data = dplyr::filter(data, helper == .),
+      theta_0 = theta_0,
+      lambda = lambda, 
+      nsteps = nsteps, 
+      eps = eps  
+    )
+  )
+
+  return(resul)
+  
 }
