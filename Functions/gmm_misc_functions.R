@@ -226,6 +226,40 @@ gmm_alasso <- function(
 }
 
 # Cross Validation --------------------------------------------------------
+# Helper function to estimate the error
+error_generator <- function(
+  gmm_alasso_list, # A gmm_alasso object
+  test_data,       # Data in which the error will be evaluated
+  known_cond,      # Function with arguments (theta, matrix), that returns known moment conditions.
+  unknown_cond    # Function with arguments (theta, matrix), that returns unknown moment conditions.
+){
+  tested_cond <- gmm_alasso_list$tested_cond
+  parameters <- gmm_alasso_list$parameters
+  conditions  <- if_else(near(tested_cond, 0, tol = 1e-3), TRUE, FALSE)
+  
+  moments <- cbind(
+    known_cond(
+      theta = parameters,
+      df = test_data,
+      matrix = TRUE
+    ),
+    unknown_cond(
+      theta = parameters,
+      df = test_data,
+      matrix = TRUE
+    )[,conditions]
+  ) %>% 
+    apply(
+      MARGIN = 2,
+      FUN = sum
+    )
+  
+  error <- as.numeric(t(moments) %*% diag(length(moments)) %*% moments)
+  
+  return(list(error = error, selected = conditions))
+}
+
+
 
 train_test_gmm_alasso <- function(
   known_cond,       # Function with arguments (theta, matrix), that returns known moment conditions.
@@ -256,46 +290,14 @@ train_test_gmm_alasso <- function(
       eps = eps
     )
   )
-
-  error_generator <- function(gmm_alasso_list, test_data){
-    # print("error generator")
-    tested_cond <- gmm_alasso_list$tested_cond
-    conditions  <- if_else(near(tested_cond, 0, tol = 1e-3), TRUE, FALSE)
-    moment_cond <- function(known_cond, unknown_cond){
-      function(theta_0, data, matrix = T){
-        moments <- cbind(
-          known_cond(
-            theta = theta_0,
-            df = data,
-            matrix = matrix
-          ),
-          unknown_cond(
-            theta = theta_0,
-            df = data,
-            matrix = matrix
-          )[,conditions]
-        )
-        return(as.matrix(moments))
-      }
-    }
-    
-    last_gmm <- gmm::gmm(
-      g = moment_cond(known_cond, unknown_cond),
-      x = test_data,
-      t0 = rep(0, length(theta_0))
-    )
-    
-    return(
-      list(
-        gmm = last_gmm,
-        selected = conditions
-      )
-    )
-  }
   
   error <- purrr::map(
     estimation,
-    ~error_generator(., test_data = test_data)
+    ~error_generator(.,
+                     test_data = test_data,
+                     known_cond = known_cond,
+                     unknown_cond = unknown_cond
+    )
   ) 
   
   results <- tibble::tibble(
@@ -304,12 +306,11 @@ train_test_gmm_alasso <- function(
     dplyr::mutate(
       selected = purrr::map(error, ~sum(.$selected)) %>% purrr::flatten_int(),
       moments = purrr::map(error, ~.$selected),
-      error = purrr::map(error, ~.$gmm$objective) %>% purrr::flatten_dbl()
+      error = purrr::map(error, ~.$error) %>% purrr::flatten_dbl()
     )
   
-  return(
-    results
-  )
+  return(results)
+  
 }
 
 cv_gmm_alasso <- function(
