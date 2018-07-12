@@ -7,13 +7,13 @@ gmm <- function(
   method = "BFGS",  # Default method for optimization
   matrix = F,
   ...
-  ){
-# Objective function to be minimized.
+){
+  # Objective function to be minimized.
   obj_func <- function(theta_0){
     mom    <- moment_cond(theta = theta_0, X = data, matrix = matrix)
     t(mom) %*% diag(length(mom)) %*% mom
   }
-# Optimization
+  # Optimization
   opt <- optim(theta_0, obj_func, method = method, ...)
   return(
     list(
@@ -25,9 +25,9 @@ gmm <- function(
 
 # GMM with Identity: Coordinate Descent ---------------------------------------------------------------------------
 # Function that estimates GMM
-  # Returns:
-  # Optimimum parameters.
-  # Objective function at optimimum parameters.
+# Returns:
+# Optimimum parameters.
+# Objective function at optimimum parameters.
 gmm_coord <- function(
   moment_cond,      # Function with arguments (theta, matrix), that returns moment conditions.
   data,             # Matrix of data.
@@ -38,12 +38,12 @@ gmm_coord <- function(
   matrix = F,
   ...
 ){
-# Stop if nsteps is not an integer.
+  # Stop if nsteps is not an integer.
   if(!(is.integer(nsteps) | is.null(nsteps))){
     print("nsteps is not an integer.")
     stop()
   }
-# Objective function to be minimized.
+  # Objective function to be minimized.
   obj_func <- function(theta_0, i){
     # For Coordinate Descent we need that the function 
     # only depends of one variable.
@@ -55,21 +55,21 @@ gmm_coord <- function(
     }
     return(obj_func_without_theta)
   }
-# Checks for steps or while approach.
+  # Checks for steps or while approach.
   if(!is.null(nsteps) & is.integer(nsteps)){
-  # Steps of optimization.
+    # Steps of optimization.
     for(j in 1:nsteps){
-    # Optimization for every parameter.
+      # Optimization for every parameter.
       for(i in 1:length(theta_0)){
         # Optimize value theta[i]
         theta_0[i] <- optimize(obj_func(theta_0, i), interval = interval, ...)$minimum
       }
     }
   } else {
-  # Create condition for the while to start with.
+    # Create condition for the while to start with.
     condition <- obj_func(theta_0,1)(theta_0[1])
-  # Condition that checks the changes within 
-  # iterations.
+    # Condition that checks the changes within 
+    # iterations.
     while(condition >= eps){
       # This helps with the difference of objective function
       # between iterations of optimization.
@@ -79,12 +79,12 @@ gmm_coord <- function(
         theta_0[i] <- optimize(obj_func(theta_0, i), interval = interval, ...)$minimum
       }
       # Computes difference of objective function.
-        condition <- abs(helper - obj_func(theta_0,1)(theta_0[1]))
+      condition <- abs(helper - obj_func(theta_0,1)(theta_0[1]))
     }
   }
-# Saves minimum value.
+  # Saves minimum value.
   min_func <- obj_func(theta_0, 1)(theta_0[1]) %>% as.numeric
-# Value to return.
+  # Value to return.
   return(
     list(
       theta = theta_0, # Saves optimimum theta.
@@ -105,12 +105,12 @@ gmm_alasso <- function(
   eps = 1e-8,      # Coondition to check minimum.
   ...
 ){
-# Stop if nsteps is not an integer.
+  # Stop if nsteps is not an integer.
   if(!(is.integer(nsteps) | is.null(nsteps))){
     print("nsteps is not an integer.")
     stop()
   }
-# 1st Step:
+  # 1st Step:
   # Let's bind conditions.
   moment_cond <- function(known_cond, unknown_cond){
     function(theta_0, data, matrix = T){
@@ -119,12 +119,12 @@ gmm_alasso <- function(
           theta = theta_0,
           df = data,
           matrix = matrix
-          ),
+        ),
         unknown_cond(
           theta = theta_0,
           df = data,
           matrix = matrix
-          )
+        )
       )
       return(moments)
     }
@@ -160,7 +160,7 @@ gmm_alasso <- function(
     dplyr::pull()
   min_theta <- theta - 8 * theta_se
   max_theta <- theta + 8 * theta_se 
-# Second Step:
+  # Second Step:
   # Stack parameters
   min_beta <- c(min_theta, first_beta_min) 
   beta     <- c(rep(0, length(theta)), first_beta)
@@ -186,7 +186,7 @@ gmm_alasso <- function(
     return(obj_func_without_theta)
   }
   # print("Start Optimization")
-# Checks for steps or while approach.
+  # Checks for steps or while approach.
   if(!is.null(nsteps) & is.integer(nsteps)){
     # Steps of optimization.
     for(j in 1:nsteps){
@@ -217,12 +217,12 @@ gmm_alasso <- function(
   
   gc()
   
- return(
-   list(
-     parameters  = beta[1:length(theta_0)],
-     tested_cond =  beta[(length(theta_0)+1):length(beta)]
-   )
- )
+  return(
+    list(
+      parameters  = beta[1:length(theta_0)],
+      tested_cond =  beta[(length(theta_0)+1):length(beta)]
+    )
+  )
 }
 
 # Cross Validation --------------------------------------------------------
@@ -231,10 +231,10 @@ error_generator <- function(
   gmm_alasso_list, # A gmm_alasso object
   test_data,       # Data in which the error will be evaluated
   known_cond,      # Function with arguments (theta, matrix), that returns known moment conditions.
-  unknown_cond    # Function with arguments (theta, matrix), that returns unknown moment conditions.
+  unknown_cond     # Function with arguments (theta, matrix), that returns unknown moment conditions.
 ){
   tested_cond <- gmm_alasso_list$tested_cond
-  parameters <- gmm_alasso_list$parameters
+  parameters  <- gmm_alasso_list$parameters
   conditions  <- if_else(near(tested_cond, 0, tol = 1e-3), TRUE, FALSE)
   
   moments <- cbind(
@@ -243,11 +243,11 @@ error_generator <- function(
       df = test_data,
       matrix = TRUE
     ),
-    unknown_cond(
+    (unknown_cond(
       theta = parameters,
       df = test_data,
       matrix = TRUE
-    )[,conditions]
+    ) - tested_cond)
   ) %>% 
     apply(
       MARGIN = 2,
@@ -256,7 +256,7 @@ error_generator <- function(
   
   error <- as.numeric(t(moments) %*% diag(length(moments)) %*% moments)
   
-  return(list(error = error, selected = conditions))
+  return(list(error = error, selected = conditions, moments = moments))
 }
 
 
@@ -269,12 +269,12 @@ train_test_gmm_alasso <- function(
   theta_0,          # Initial guess.
   lambda = NULL,    # Penalization Parameter.
   nsteps = NULL,    # Steps for the for to run.
-  eps = 1e-8,      # Coondition to check minimum.
+  eps = 1e-8,       # Coondition to check minimum.
   ...
 ){
   # Determines which lambdas are going to be evaluated
   if(is.null(lambda)){
-    lambda <- seq(0,0.8, by = .005)
+    lambda <- seq(-.5, 1.5, by = .01)
   }
   
   # Returns a list of parameters
@@ -291,12 +291,13 @@ train_test_gmm_alasso <- function(
     )
   )
   
-  error <- purrr::map(
+  error_helper <- purrr::map(
     estimation,
-    ~error_generator(.,
-                     test_data = test_data,
-                     known_cond = known_cond,
-                     unknown_cond = unknown_cond
+    ~error_generator(
+      .,
+      test_data = test_data,
+      known_cond = known_cond,
+      unknown_cond = unknown_cond
     )
   ) 
   
@@ -304,9 +305,10 @@ train_test_gmm_alasso <- function(
     lambda = lambda
   ) %>%
     dplyr::mutate(
-      selected = purrr::map(error, ~sum(.$selected)) %>% purrr::flatten_int(),
-      moments = purrr::map(error, ~.$selected),
-      error = purrr::map(error, ~.$error) %>% purrr::flatten_dbl()
+      selected_number  = purrr::map(error_helper, ~sum(.$selected)) %>% purrr::flatten_int(),
+      selected_moments = purrr::map(error_helper, ~.$selected),
+      error            = purrr::map(error_helper, ~.$error) %>% purrr::flatten_dbl(),
+      moment_values    = purrr::map(error_helper, ~.$moments)
     )
   
   return(results)
@@ -321,9 +323,10 @@ cv_gmm_alasso <- function(
   theta_0,          # Initial guess.
   lambda = NULL,    # Penalization Parameter.
   nsteps = NULL,    # Steps for the for to run.
-  eps = 1e-8,      # Coondition to check minimum.
+  eps = 1e-8,       # Coondition to check minimum.
   ...
 ){
+  
   divide <- nrow(data) / nfolds
   data <- data %>% 
     mutate(helper = rep(sample(1:nfolds), divide))
@@ -341,7 +344,7 @@ cv_gmm_alasso <- function(
       eps = eps  
     )
   )
-
+  
   return(resul)
   
 }
