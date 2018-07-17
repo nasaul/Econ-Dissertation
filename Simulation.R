@@ -12,43 +12,39 @@ df <- gen_data(
 
 # Moment Definition -------------------------------------------------------
 # Define moments that you know are equal to 0.
-known_conditions <- function(theta, df, matrix = T){
+known_conditions <- function(theta, df){
   X <- as.matrix(df)
   eps <- X[,"Y"] - ( X[, c("X", "W1", "W2")] %*% as.matrix(theta) )
-  if(matrix == T){
-    moment <- X[, c("Z1", "W1", "W2")] * rep(c(eps),3) / length(eps)
-  } else{
-    moment <- (t(X[, c("Z1", "W1", "W2")] ) %*% eps) / length(eps) 
-  }
+  
+  moment <- X[, c("Z1", "W1", "W2")] * rep(c(eps),3) / length(eps)
+
   return(moment)
 }
 # Define moments that you want to test.
-unknown_conditions <- function(theta, df, matrix = T){
+unknown_conditions <- function(theta, df){
   X <- as.matrix(df)
   eps <- X[,"Y"] - ( X[, c("X", "W1", "W2")] %*% as.matrix(theta) )
-  if(matrix == T){
-    moment <- as.matrix(
-      X[, c(paste("Z", 21:25, sep = ""), paste("F", 1:20, sep = ""))] * 
-        rep(c(eps),5)
-      )
-  } else{
-    moment <- (t(X[,  c(paste("Z", 21:25, sep = ""), paste("F", 1:20, sep = ""))] ) %*% eps) / length(eps) 
-  }
+  
+  moment <- as.matrix(
+    X[, c(paste("Z", 21:25, sep = ""), paste("F", 1:20, sep = ""))] * 
+      rep(c(eps),25)
+  )
+  
   return(moment)
 }
 
 
 # Shrinkage GMM -----------------------------------------------------------
 source("./Functions/gmm_misc_functions.R")
-
+source("./Functions/functions_redone.R")
 # Cross Validation
 cv.model <- cv_gmm_alasso(
   nfolds = 5,
   known_cond = known_conditions,
   unknown_cond = unknown_conditions,
   data        = df,
-  theta_0     = c(0, 0),
-  eps = 1e-4
+  theta_0     = c(0, 0, 0),
+  eps = 1e-5
 )
 
 # cv.model %>% 
@@ -65,7 +61,17 @@ gmm_alasso(
   known_cond = known_conditions,
   unknown_cond = unknown_conditions,
   data        = df,
-  theta_0     = c(0, 0),
-  lambda = 0.025,
-  eps = 1e-8
+  theta_0     = c(0, 0, 0),
+  lambda = 100,
+  eps = 1e-5
 )
+
+gmm_lasso(
+  known_cond = known_conditions,
+  unknown_cond = unknown_conditions,
+  data        = df,
+  theta_0     = c(0, 0, 0),
+  lambda = 1000,
+  eps = 1e-5
+)
+

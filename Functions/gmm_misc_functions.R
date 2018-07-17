@@ -58,6 +58,7 @@ obj_func <- function(
     func_value <- t(mom) %*% diag(length(mom)) %*% mom + # GMM
       # Penalization
       lambda * sum(abs(beta[(K + 1):length(beta)] / first_beta)) 
+    
     return(func_value)
   }
   return(obj_func_uni)
@@ -93,7 +94,7 @@ gmm_alasso <- function(
   )
   # Values of condition in first estimation
   first_condition <- first_gmm$coefficients %>% 
-    unknown_cond(df = data, matrix = T) %>% 
+    unknown_cond(df = data) %>% 
     as.matrix
   n_unkown <- first_condition %>% ncol
   # Moment condition
@@ -194,6 +195,7 @@ gmm_alasso <- function(
           data         = data
         )(beta[1])
       )
+      print(condition)
     }
   }
   
@@ -263,7 +265,7 @@ train_test_gmm_alasso <- function(
   # Returns a list of parameters
   estimation <- purrr::map(
     lambda,
-    ~gmm_alasso(
+    ~gmm_lasso(
       known_cond = known_cond,
       unknown_cond = unknown_cond,
       data = train_data,
@@ -322,7 +324,7 @@ cv_gmm_alasso <- function(
       known_cond = known_cond, 
       unknown_cond = unknown_cond, 
       train_data = dplyr::filter(data, helper != .), 
-      test_data = dplyr::filter(data, helper == .),
+      test_data = dplyr::filter(data,  helper == .),
       theta_0 = theta_0,
       lambda = lambda, 
       nsteps = nsteps, 
