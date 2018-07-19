@@ -5,7 +5,7 @@ library(dplyr)
 library(ggplot2)
 
 # Simulate Endogeneity ----------------------------------------------------
-source("./Functions/simulation_functions.R")
+source("./Functions/Simulation/simulation_function.R")
 df <- gen_data(
   cl = 0.2
 )
@@ -35,24 +35,26 @@ unknown_conditions <- function(theta, df){
 
 
 # Shrinkage GMM -----------------------------------------------------------
-source("./Functions/penalized_gmm_methods.R")
+source("./Functions/penalized_gmm_functions.R")
 # Cross Validation
 
-# cv.model <- cv_gmm_alasso(
-#   nfolds = 2,
-#   known_cond = known_conditions,
-#   unknown_cond = unknown_conditions,
-#   data        = df,
-#   theta_0     = c(0, 0, 0),
-#   lambda = seq(0,.25, length.out = 30),
-#   eps = 1e-8
-# )
-# 
-# cv.model %>% 
-#   group_by(lambda) %>%
-#   summarise( error_max = max(error), error_min = min(error), error = mean(error)) %>%
-#   ggplot(aes(x = lambda)) +
-#   geom_pointrange(aes(y = error, ymin = error_min, ymax = error_max))
+model <- cv_gmm_lasso(
+  nfolds       = 2,
+  known_cond   = known_conditions,
+  unknown_cond = unknown_conditions,
+  data         = df,
+  theta_0      = c(0, 0, 0),
+  eps          = 1e-4,
+  nsteps       = 1000L,
+  lambdas      = seq(0, 0.05, length.out = 100) 
+)
+
+
+model %>% View
+    group_by(lambda) %>%
+    summarise( error_max = max(error), error_min = min(error), error = mean(error)) %>%
+    ggplot(aes(x = lambda)) +
+    geom_pointrange(aes(y = error, ymin = error_min, ymax = error_max))
 #   
 # 
 # cv.model %>% 

@@ -274,7 +274,8 @@ train_test_info <- function(
   result <- tibble::tibble(
     error             = estimated_error,
     model_parameters  = list(parameter_estimation$model_parameters),
-    moment_parameters = list(parameter_estimation$moment_parameters)
+    moment_parameters = list(parameter_estimation$moment_parameters),
+    lambda            = lambda
   )
   return(result)
 }
@@ -315,7 +316,7 @@ cv_gmm_lasso <- function(
   unknown_cond,     # Function with arguments (theta, data.frame), that returns unknown moment conditions.
   data,             # data.frame to be used with conditions functions.
   theta_0,          # Initial guess of model parameter.
-  lambdas,          # Penalization hyperparameters.
+  lambdas = seq(0, 1, by = 0.01),          # Penalization hyperparameters.
   nsteps = NULL,    # Maximum steps for optimization.
   eps = 1e-8        # Coondition to check minimum.
 ){
