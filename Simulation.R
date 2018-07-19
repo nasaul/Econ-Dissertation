@@ -35,43 +35,57 @@ unknown_conditions <- function(theta, df){
 
 
 # Shrinkage GMM -----------------------------------------------------------
-source("./Functions/gmm_misc_functions.R")
-source("./Functions/functions_redone.R")
+source("./Functions/penalized_gmm_methods.R")
 # Cross Validation
-cv.model <- cv_gmm_alasso(
-  nfolds = 5,
-  known_cond = known_conditions,
-  unknown_cond = unknown_conditions,
-  data        = df,
-  theta_0     = c(0, 0, 0),
-  eps = 1e-5
-)
 
+# cv.model <- cv_gmm_alasso(
+#   nfolds = 2,
+#   known_cond = known_conditions,
+#   unknown_cond = unknown_conditions,
+#   data        = df,
+#   theta_0     = c(0, 0, 0),
+#   lambda = seq(0,.25, length.out = 30),
+#   eps = 1e-8
+# )
+# 
 # cv.model %>% 
-#   group_by(lambda) %>% 
-#   summarise(error = mean(error), error_max = max(error), error_min = min(error)) %>% 
+#   group_by(lambda) %>%
+#   summarise( error_max = max(error), error_min = min(error), error = mean(error)) %>%
 #   ggplot(aes(x = lambda)) +
-#   geom_line(aes(y = error)) +
-#   geom_line(aes(y = error_max), colour = "blue") +
-#   geom_line(aes(y = error_min), colour = "blue")
-
-
-# Alasso GMM
-gmm_alasso(
-  known_cond = known_conditions,
-  unknown_cond = unknown_conditions,
-  data        = df,
-  theta_0     = c(0, 0, 0),
-  lambda = 100,
-  eps = 1e-5
-)
-
-gmm_lasso(
-  known_cond = known_conditions,
-  unknown_cond = unknown_conditions,
-  data        = df,
-  theta_0     = c(0, 0, 0),
-  lambda = 1000,
-  eps = 1e-5
-)
-
+#   geom_pointrange(aes(y = error, ymin = error_min, ymax = error_max))
+#   
+# 
+# cv.model %>% 
+#   select(lambda, moment_values) %>% 
+#   mutate(nombres = purrr::map(moment_values, names)) %>% 
+#   tidyr::unnest() %>% 
+#   group_by(lambda, nombres) %>% 
+#   summarise(
+#     moment_values_mean = mean(moment_values),
+#     moment_values_min = min(moment_values),
+#     moment_values_max = max(moment_values)
+#   ) %>% 
+#   ggplot(aes(x = nombres)) +
+#   geom_errorbar(aes(ymin = moment_values_min, ymax = moment_values_max)) +
+#   geom_point(aes(y = moment_values_mean)) + 
+#   coord_flip() 
+# 
+# # Alasso GMM
+# gmm_alasso(
+#   known_cond = known_conditions,
+#   unknown_cond = unknown_conditions,
+#   data        = df,
+#   theta_0     = c(0, 0, 0),
+#   lambda = 0.01,
+#   eps = 1e-4
+# )
+# 
+# gmm_lasso(
+#   known_cond = known_conditions,
+#   unknown_cond = unknown_conditions,
+#   data        = df,
+#   theta_0     = c(0, 0, 0),
+#   lambda = 0.01,
+#   eps = 1e-4
+# )
+# 
