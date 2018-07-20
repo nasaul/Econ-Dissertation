@@ -74,3 +74,4 @@ estimation <- gmm_lasso(
 mom_comp <- near(estimation$moment_parameters, 0, tol = 1e-4)
 # Selected moments.
 selected_mom <- names(subset(mom_comp, mom_comp))
+selected_mom

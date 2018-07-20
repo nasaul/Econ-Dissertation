@@ -289,7 +289,7 @@ train_test_error <- function(
   test_data,        # data.frame to be used with conditions functions.
   theta_0,          # Initial guess of model parameter.
   lambdas = seq(0, 1, by = 0.01),          # Penalization hyperparameters.
-  nsteps = NULL,    # Maximum steps for optimization.
+  nsteps = 1000L,    # Maximum steps for optimization.
   eps = 1e-8        # Coondition to check minimum.
 ){
  results <- purrr::map_df(

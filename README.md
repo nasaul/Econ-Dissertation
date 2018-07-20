@@ -2,6 +2,6 @@
 Code for my Econ Dissertation on GMM Shrinkage method
 # TODO
 - [x] Check if simulation is correct.
-- [ ] Option to choose between **Adaptive Lasso** or **Lasso penalty**.
-- [ ] Option to choose efficient weight matrix.
-- [ ] Check if test error is corrrectly defined.
+- [x] Deprecated: **Lasso penalty** sucks.
+- [ ] Option to choose efficient weight matrix: this feature will come to R package, not this thesis.
+- [x] Check if test error is corrrectly defined.
