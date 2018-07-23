@@ -288,8 +288,8 @@ train_test_error <- function(
   train_data,       # data.frame to be used with conditions functions.
   test_data,        # data.frame to be used with conditions functions.
   theta_0,          # Initial guess of model parameter.
-  lambdas = seq(0, 1, by = 0.01),          # Penalization hyperparameters.
-  nsteps = 1000L,    # Maximum steps for optimization.
+  lambdas = seq(0, 1, by = 0.01), # Penalization hyperparameters.
+  nsteps = 1000L,   # Maximum steps for optimization.
   eps = 1e-8        # Coondition to check minimum.
 ){
  results <- purrr::map_df(
@@ -316,7 +316,7 @@ cv_gmm_lasso <- function(
   unknown_cond,     # Function with arguments (theta, data.frame), that returns unknown moment conditions.
   data,             # data.frame to be used with conditions functions.
   theta_0,          # Initial guess of model parameter.
-  lambdas = seq(0, 1, by = 0.01),          # Penalization hyperparameters.
+  lambdas = seq(0, 1, by = 0.01), # Penalization hyperparameters.
   nsteps = NULL,    # Maximum steps for optimization.
   eps = 1e-8        # Coondition to check minimum.
 ){

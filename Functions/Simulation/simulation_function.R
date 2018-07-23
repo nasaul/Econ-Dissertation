@@ -93,3 +93,75 @@ gen_data <- function(
   
   return(gen_data)
 }
+
+
+# Moment Definition -----------------------------------------------------------------------------------------------
+# Define moments that you know are equal to 0.
+known_conditions <- function(theta, df){
+  X <- as.matrix(df)
+  eps <- X[,"Y"] - ( X[, c("X", "W1", "W2")] %*% as.matrix(theta) )
+  
+  moment <- X[, c("Z1", "W1", "W2")] * rep(c(eps),3) / length(eps)
+  
+  return(moment)
+}
+# Define moments that you want to test.
+unknown_conditions <- function(theta, df){
+  X <- as.matrix(df)
+  eps <- X[,"Y"] - ( X[, c("X", "W1", "W2")] %*% as.matrix(theta) )
+  
+  moment <- as.matrix(
+    X[, c(paste("Z", 21:25, sep = ""), paste("F", 1:20, sep = ""))] * 
+      rep(c(eps),25)
+  )
+  
+  return(moment)
+}
+
+
+# Simulate and Estimate parameters --------------------------------------------------------------------------------
+
+simulation <- function(cl, lambdas, eps, N, pi1){
+  df <- gen_data(
+    cl  = cl,
+    N   = N,
+    pi1 = pi1
+  )
+  model <- cv_gmm_lasso(
+    nfolds       = 2,
+    known_cond   = known_conditions,
+    unknown_cond = unknown_conditions,
+    data         = df,
+    theta_0      = c(0, 0, 0),
+    eps          = eps,
+    nsteps       = 1000L,
+    lambdas      = lambdas
+  )
+  # Extract lambda that achieves minimum error.
+  min_lambda <- model %>% 
+    group_by(lambda) %>%
+    summarise(error = mean(error)) %>%
+    filter(error == min(error)) %>% 
+    pull(lambda)
+  # Estimation of real model
+  estimation <- gmm_lasso(
+    known_cond   = known_conditions,
+    unknown_cond = unknown_conditions,
+    data         = df,
+    theta_0      = c(0, 0, 0),
+    eps          = 1e-8,
+    nsteps       = 1000L,
+    lambda       = min_lambda
+  )
+  # Comparates if moments are true or false.
+  mom_comp <- near(estimation$moment_parameters, 0, tol = 1e-4)
+  # Selected moments.
+  selected_mom <- names(subset(mom_comp, mom_comp))
+  return(
+    list(
+      selected_mom = selected_mom,
+      mom_par      = estimation$moment_parameters
+    )
+    
+  )
+}
