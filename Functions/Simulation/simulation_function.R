@@ -121,7 +121,8 @@ unknown_conditions <- function(theta, df){
 
 # Simulate and Estimate parameters --------------------------------------------------------------------------------
 
-simulation <- function(cl, lambdas, eps, N, pi1){
+simulation <- function(cl, lambdas, eps, N, pi1, sim_num, nombre){
+  t1 <- Sys.time()
   df <- gen_data(
     cl  = cl,
     N   = N,
@@ -134,7 +135,7 @@ simulation <- function(cl, lambdas, eps, N, pi1){
     data         = df,
     theta_0      = c(0, 0, 0),
     eps          = eps,
-    nsteps       = 1000L,
+    nsteps       = 500L,
     lambdas      = lambdas
   )
   # Extract lambda that achieves minimum error.
@@ -149,19 +150,20 @@ simulation <- function(cl, lambdas, eps, N, pi1){
     unknown_cond = unknown_conditions,
     data         = df,
     theta_0      = c(0, 0, 0),
-    eps          = 1e-8,
+    eps          = 1e-6,
     nsteps       = 1000L,
     lambda       = min_lambda
   )
+  t2 <- Sys.time()
+  cat(t1 - t2)
   # Comparates if moments are true or false.
   mom_comp <- near(estimation$moment_parameters, 0, tol = 1e-4)
   # Selected moments.
   selected_mom <- names(subset(mom_comp, mom_comp))
-  return(
-    list(
-      selected_mom = selected_mom,
-      mom_par      = estimation$moment_parameters
-    )
-    
+  x <- list(
+    selected_mom = selected_mom,
+    mom_par      = estimation$moment_parameters
   )
+  saveRDS(x, file = paste("Results/", nombre, "/sim_",sim_num, ".rds", sep = ""))
+  return(NULL)
 }
