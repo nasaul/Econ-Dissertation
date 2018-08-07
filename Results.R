@@ -73,7 +73,7 @@ dist_plot <- dist_info(sim_2_2) %>%
     cl = c(0.2, 0.5, 0.2, 0.5)
   ) %>% 
   gather(key, value, -pi, -cl) %>% 
-  mutate(key = if_else(key == "mom_F", "Momentos Falsos", key)) %>% 
+  mutate(key = if_else(key == "mom_F", "F", key)) %>% 
   ggplot(aes(x = reorder(key, -value), y = value)) +
   geom_bar(stat = "identity") +
   facet_grid(pi ~ cl, labeller = label_bquote(cols = c[l] == .(cl), rows = pi[1] == .(pi))) +
@@ -83,7 +83,8 @@ dist_plot <- dist_info(sim_2_2) %>%
     title = "Distribución de la selección de momentos"
   ) + 
   theme(
-    text = element_text(size = 30)
+    text = element_text(size = 18)
   )
 
+dist_plot
 ggsave("Results/plot_dist.pdf", dist_plot, device = "pdf", width = 9)
