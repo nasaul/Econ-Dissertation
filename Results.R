@@ -23,9 +23,9 @@ select_moments <- function(x){
 prop_table <- function(x){
   x %>% 
     mutate(
-      p1 = if_else(mom_f == TRUE, 1, 0),
-      p2 = if_else(p1 == 0 & any(Z21, Z22, Z23, Z24, Z25), 1, 0),
-      p3 = if_else(p1 == 0 & all(Z21, Z22, Z23, Z24, Z25), 1, 0)
+      p1 = ifelse(mom_f == TRUE, 1, 0),
+      p2 = ifelse(p1 == 0 & any(Z21, Z22, Z23, Z24, Z25) & !(Z21 & Z22 & Z23 & Z24 & Z25), 1, 0),
+      p3 = ifelse(p1 == 0 & Z21 & Z22 & Z23 & Z24 & Z25, 1, 0)
     ) %>% 
     summarise(
       p1 = sum(p1) / nrow(x),
@@ -35,7 +35,7 @@ prop_table <- function(x){
 }
 
 # Obtain results --------------------------------------------------------------------------------------------------
-sim_2_2 <- readRDS(list.files("Results/sim_500_2/",   full.names = TRUE)) %>% 
+sim_2_2 <- map(list.files("Results/sim_500_2/",   full.names = TRUE), readRDS) %>% 
   select_moments()
 sim_5_2 <- map(list.files("Results/sim_500_5/",   full.names = TRUE), readRDS) %>% 
   select_moments()

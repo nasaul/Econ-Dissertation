@@ -150,7 +150,7 @@ simulation <- function(cl, lambdas, eps, N, pi1, sim_num, nombre){
     unknown_cond = unknown_conditions,
     data         = df,
     theta_0      = c(0, 0, 0),
-    eps          = 1e-6,
+    eps          = 1e-8,
     nsteps       = 1000L,
     lambda       = min_lambda
   )
