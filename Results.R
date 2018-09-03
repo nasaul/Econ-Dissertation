@@ -45,10 +45,12 @@ sim_5_8 <- map(list.files("Results/sim_500_5_8/", full.names = TRUE), readRDS) %
   select_moments()
 
 # Table results ---------------------------------------------------------------------------------------------------
-sim_2_2 %>% prop_table()
-sim_5_2 %>% prop_table()
-sim_2_8 %>% prop_table()
-sim_5_8 %>% prop_table()
+# pi 0.2
+sim_2_2 %>% prop_table() # cl 0.2
+sim_5_2 %>% prop_table() # cl 0.5
+# pi 0.8
+sim_2_8 %>% prop_table() # cl 0.2
+sim_5_8 %>% prop_table() # cl 0.5
 
 # Graphic generator -----------------------------------------------------------------------------------------------
 
